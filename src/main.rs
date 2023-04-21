@@ -63,26 +63,30 @@ impl Binary for F32 {
     }
 }
 
-macro_rules! print_floats {
+macro_rules! format_floats {
     ($type:ident, $n:expr, $x:ident, $prefix:ident) => {
         if $prefix {
             if $x {
-                println!("{:}: {:x}", $n, $type($n));
+                format!("{:}: {:x}", $n, $type($n))
             } else {
-                println!("{:}: {:b}", $n, $type($n));
+                format!("{:}: {:b}", $n, $type($n))
             }
         } else {
             if $x {
-                println!("{:x}", $type($n));
+                format!("{:x}", $type($n))
             } else {
-                println!("{:b}", $type($n));
+                format!("{:b}", $type($n))
             }
         }
     };
 }
 
-fn print_floats(nums: Vec<&str>, hex:bool, prefix:bool) {
+fn enc_floats(nums: Vec<&str>, hex:bool, prefix:bool) -> String {
+    let mut out = String::new();
     for i in 0..nums.len() {
+        if i > 0 {
+            out.push('\n');
+        }
         let s: &str = &nums[i].replace("_", "");
         if !s.ends_with("f32") {
             let mut t = s;
@@ -92,15 +96,17 @@ fn print_floats(nums: Vec<&str>, hex:bool, prefix:bool) {
             let mut err = "expecting f64, but was ".to_string();
             err.push_str(s);
             let f = t.parse::<f64>().expect(&err);
-            print_floats!(F64, f, hex, prefix);
+            out.push_str(&format_floats!(F64, f, hex, prefix));
         } else {
             let t = &s[0..s.len() - 3];
             let mut err = "expecting f32, but was ".to_string();
             err.push_str(s);
             let f = t.parse::<f32>().expect(&err);
-            print_floats!(F32, f, hex, prefix);
+            out.push_str(&format_floats!(F32, f, hex, prefix));
         }
+        
     }
+    out
 }
 
 fn main() {
@@ -134,6 +140,21 @@ fn main() {
 
     let x: bool = matches.get_flag("x");
     let np: bool = matches.get_flag("P");
-    print_floats(args, x, !np);
+    let s = enc_floats(args, x, !np);
+    println!("{}", s);
     
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_fbe() {
+        assert_eq!("0 00000000 00000000000000000000000", super::enc_floats(["0f32"].to_vec(), false, false));
+        assert_eq!("0 01111111 00000000000000000000000", super::enc_floats(["1f32"].to_vec(), false, false));
+        assert_eq!("1 01111111 00000000000000000000000", super::enc_floats(["-1f32"].to_vec(), false, false));
+        assert_eq!("0 10000000 01000000000000000000000", super::enc_floats(["2.5f32"].to_vec(), false, false));
+        assert_eq!("0 11111111 00000000000000000000000", super::enc_floats(["inff32"].to_vec(), false, false));
+        assert_eq!("0 11111111 10000000000000000000000", super::enc_floats(["nanf32"].to_vec(), false, false));
+    }
+
 }
